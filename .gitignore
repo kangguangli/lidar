@@ -1,0 +1,9 @@
+download.sh
+log.txt
+wget-log
+wget-log.1
+.vscode/sftp.json
+.vscode/
+data/
+devkit_raw_data/
+__pycache__
