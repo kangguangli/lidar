@@ -7,3 +7,4 @@ wget-log.1
 data/
 devkit_raw_data/
 __pycache__
+runs/
