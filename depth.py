@@ -20,7 +20,7 @@ def fake_loader():
         yield np.random.rand(1, 1, 1200, 370), np.random.rand(1, 1, 1200, 370)
 
 
-class Discriminator(nn.Module):
+class DiscriminatorOld(nn.Module):
 
     def __init__(self, ngpu):
 
@@ -72,6 +72,62 @@ class Discriminator(nn.Module):
     def forward(self, input):
 
         return self.main(input)
+
+
+
+class Discriminator(nn.Module):
+
+    def __init__(self, ngpu):
+
+        super(Discriminator, self).__init__()
+        self.ngpu = ngpu
+        self.main = nn.Sequential(
+            # input is nc * 416 * 128
+
+            nn.Conv2d(nc, ndf, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf) x 208 x 64
+
+            nn.Conv2d(ndf, ndf * 2, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf*2) x 104 x 32
+
+            nn.Conv2d(ndf * 2, ndf * 4, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf*2) x 52 x 16
+
+            nn.Conv2d(ndf * 4, ndf * 8, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf*2) x 26 x 8
+
+            nn.Conv2d(ndf * 8, ndf * 4, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf*2) x 13 x 4
+
+            nn.Conv2d(ndf * 4, ndf * 2, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf*2) x 6 x 2
+
+            nn.Conv2d(ndf * 2, ndf, (4, 4), stride = (2, 2), padding = (1, 1), bias = False),
+            nn.BatchNorm2d(ndf),
+            nn.LeakyReLU(0.2, inplace = True),
+            # state size. (ndf*2) x 3 x 1
+
+            nn.Conv2d(ndf, 1, (3, 1), stride = (1, 1), padding = (0, 0), bias = False),
+            # state size. 1 x 1 x 1
+            nn.Sigmoid()
+        )
+
+    
+    def forward(self, input):
+
+        return self.main(input)
+
 
 
 class Generator(nn.Module):

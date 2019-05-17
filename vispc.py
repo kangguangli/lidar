@@ -245,6 +245,9 @@ def project_to_image(file : str, pc_dir = 'data/velo', calib_dir = 'data/data_ob
 
     arr = getArray(os.path.join(pc_dir, file), four = True)
 
+    #filter no use
+    # selector = np.vectorize(lambda x: True if x  else False)
+
     new_pc = np.transpose(p2 * r0_rect * tr_velo_to_cam * np.transpose(arr))
 
     # new_pc = f(arr)

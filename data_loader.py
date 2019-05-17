@@ -1,8 +1,10 @@
 import numpy as np
 import os
+import math
 from PIL import Image
 
 image_size = [1200, 370]
+image_size_sfm = [416, 128] 
 velo_num = 85504
 
 
@@ -78,7 +80,7 @@ def getSingleDepth(file, img_dir, depth_dir):
 
 
 
-def getBatchDepth(img_dir, depth_dir, batch_size = 64):
+def getBatchDepth_Old(img_dir, depth_dir, batch_size = 64):
 
     files = np.array(os.listdir(depth_dir))
     files = np.array_split(files, int(files.shape[0] / batch_size))
@@ -89,8 +91,8 @@ def getBatchDepth(img_dir, depth_dir, batch_size = 64):
 
         n = len(fs)
 
-        imgs = np.ones((n, 1, 1200, 370)) #temp
-        depths = np.ones((n, 1, 1200, 370))
+        imgs = np.ones((n, 1, image_size[0], image_size[1])) #temp
+        depths = np.ones((n, 1, image_size[0], image_size[1]))
 
         i = 0
 
@@ -101,3 +103,99 @@ def getBatchDepth(img_dir, depth_dir, batch_size = 64):
             i += 1
 
         yield imgs, depths
+
+
+def getBatchDepthS(root, image_channel = 'image_02', batch_size = 64):
+
+
+    dirs = os.listdir(root)
+
+    total = []
+
+    for dir in dirs:
+
+        if not os.path.isdir(os.path.join(root, dir)):
+            continue
+
+        _img_dir = os.path.join(root, dir, image_channel, 'data')
+        _depth_dir = os.path.join(root, dir, 'groundtruth', image_channel)
+
+        total.append(list(map(lambda x : (x, _img_dir, _depth_dir), os.listdir(_depth_dir))))
+
+    total = np.array(total)
+    piles = np.array_split(total, int(total.shape[0] / batch_size))
+
+    yield len(piles)    
+
+    for p in piles:
+
+        n = len(p)
+
+        imgs = np.ones((n, 1, image_size[0], image_size[1])) 
+        depths = np.ones((n, 1, image_size[0], image_size[1]))
+
+        i = 0
+
+        for f, _img_dir, _depth_dir in p:
+            img, depth = getSingleDepth(f, _img_dir, _depth_dir)
+            imgs[i, 0, :, :] = np.transpose(img)
+            depths[i, 0, :, :] = np.transpose(depth)
+            i += 1
+
+        yield imgs, depths
+
+
+
+def getSingleDepthSfmLearner(img_file, depth_file):
+
+    img = Image.open(img_file)
+    # if img.size != image_size_sfm:
+    #     img = img.resize(image_size)
+    img = img.convert('L')
+    img = np.array(img)
+
+    depth = np.load(depth_file)
+    # depth = depth.resize(image_size)
+    # depth = depth.convert('L')
+    # depth = np.array(depth)
+
+    return img, depth
+
+
+def getBatchDataFromSfmLearner(root, train = True, batch_size = 64):
+
+    scene_list_path = os.path.join(root, 'train.txt') if train else os.path.join(root, 'val.txt')
+    scene_list = [os.path.join(root, folder[:-1]) for folder in open(scene_list_path)]
+
+    total = []
+    for scene in scene_list:
+
+        if not os.path.isdir(scene):
+            continue
+
+        imgs = [os.path.join(scene, f) for f in os.listdir(scene) if f.find('jpg') != -1]
+        total.extend(list(map(lambda x : (x, x.replace('jpg', 'npy')), imgs)))
+
+    total = np.array(total)
+    piles = np.array_split(total, math.ceil(total.shape[0] / batch_size))
+
+    yield len(piles)   
+
+    for p in piles:
+
+        n = len(p)
+
+        imgs = np.ones((n, 1, image_size_sfm[0], image_size_sfm[1])) 
+        depths = np.ones((n, 1, image_size_sfm[0], image_size_sfm[1]))
+
+        i = 0
+
+        for _img, _depth in p:
+            img, depth = getSingleDepthSfmLearner(_img, _depth)
+            imgs[i, 0, :, :] = np.transpose(img)
+            depths[i, 0, :, :] = np.transpose(depth)
+            i += 1
+
+        yield imgs, depths
+
+
