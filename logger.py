@@ -4,6 +4,7 @@
 import os
 import numpy as np
 import errno
+import datetime
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 from IPython import display
@@ -18,7 +19,7 @@ class Logger:
         self.data_name = data_name
 
         self.comment = '{}_{}'.format(model_name, data_name)
-        self.data_subdir = '{}/{}'.format(model_name, data_name)
+        self.data_subdir = '{}/{}_{}'.format(model_name, data_name, datetime.datetime.now().strftime("%m-%d-%H:%M"))
 
         # TensorBoard
         self.writer = SummaryWriter(comment=self.comment)

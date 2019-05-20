@@ -7,64 +7,6 @@ import time
 
 
 
-def getArray(file : str, four = False) -> np.ndarray :
-
-    arr = np.fromfile(file, dtype = 'float32')
-    arr = arr.reshape((-1, 4))
-    if four != True:
-        arr = arr[:, :3]
-
-    return arr
-
-
-
-def preprocess(file : str, limits = None) -> str:
-
-    arr = np.fromfile(file, dtype = 'float32')
-    arr = arr.reshape((-1, 4))
-    arr = arr[:, :3]
-
-    if limits != None:
-        assert limits.shape == (3, 2)
-        xlim = limits[0]
-        ylim = limits[1]
-        zlim = limits[2]
-        arr = arr[
-            (arr[:, 0] > xlim[0]) & (arr[:, 0] < xlim[1]) &
-            (arr[:, 1] > ylim[0]) & (arr[:, 1] < ylim[1]) &
-            (arr[:, 2] > zlim[0]) & (arr[:, 2] < zlim[1])
-        ]
-        print(arr.shape)
-
-    pcd = PointCloud()
-    pcd.points = Vector3dVector(arr)
-
-    store_file = file.replace('bin', 'ply')
-    write_point_cloud(store_file, pcd)
-
-    return store_file
-
-
-def visualize(file : str):
-
-    if file.find('bin') != -1:
-        file = preprocess(file)
-
-    pcd_load = read_point_cloud(file)
-    draw_geometries([pcd_load])
-
-
-def visualize_once(file : str, limits = None):
-
-    if file.find('ply') != -1:
-        visualize(file)
-        return
-    
-    file = preprocess(file)
-    visualize(file)
-    os.remove(file)
-
-
 def visualize_statistics(file : str):
 
     arr = np.fromfile(file, dtype = 'float32')
