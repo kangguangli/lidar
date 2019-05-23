@@ -31,7 +31,7 @@ class BasicBlock(nn.Module):
             self.downsample = nn.Sequential(
                 nn.Conv2d(inplanes, planes,
                           kernel_size = 1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes),
+                # nn.BatchNorm2d(planes),
             )
         else:
             self.downsample = downsample
@@ -41,11 +41,11 @@ class BasicBlock(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        out = self.bn1(out)
+        # out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
+        # out = self.bn2(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -242,7 +242,7 @@ class UNetR(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         x = self.outc(x)
-        return F.sigmoid(x)
+        return F.relu(x)#x#F.sigmoid(x)
 
     def init_weights(self):
         for m in self.modules():
