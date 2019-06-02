@@ -31,7 +31,7 @@ class BasicBlock(nn.Module):
             self.downsample = nn.Sequential(
                 nn.Conv2d(inplanes, planes,
                           kernel_size = 1, stride=stride, bias=False),
-                # nn.BatchNorm2d(planes),
+                nn.BatchNorm2d(planes),
             )
         else:
             self.downsample = downsample
@@ -41,11 +41,11 @@ class BasicBlock(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        # out = self.bn1(out)
+        out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        # out = self.bn2(out)
+        out = self.bn2(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -215,6 +215,19 @@ def depth2pc(depth):
         return res
 
 
+def getSIlog(gt, pred):
+
+    # _pred = pred + 1.0
+    # _gt = gt + 1.0
+
+    d_i = torch.log(torch.clamp(pred, min = 1e-3)) - torch.log(torch.clamp(gt, min = 1e-3))
+    b, c, h, w = d_i.size()
+    n = h * w
+    _silog = torch.sum(torch.sum(torch.pow(d_i, 2), 3), 2) / n - torch.pow(torch.sum(torch.sum(d_i, 3), 2), 2) / (n * n)
+    silog = torch.mean(_silog)
+
+    return silog
+
 
 class UNetR(nn.Module):
 
@@ -242,7 +255,7 @@ class UNetR(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         x = self.outc(x)
-        return F.relu(x)#x#F.sigmoid(x)
+        return F.softplus(x)#F.relu(x)#x#F.sigmoid(x)
 
     def init_weights(self):
         for m in self.modules():

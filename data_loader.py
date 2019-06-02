@@ -23,10 +23,11 @@ def getArray(file : str, four = False) -> np.ndarray :
 
 
 
-def getSingleDepthSfmLearner(img_file, depth_file):
+def getSingleDepthSfmLearner(img_file, depth_file, channel = 1):
 
     img = Image.open(img_file)
-    img = img.convert('L')
+    if channel == 1:
+        img = img.convert('L')
     img = np.array(img)
 
     depth = np.load(depth_file)
@@ -62,27 +63,6 @@ def getBatchDataFromSfmLearner(root, velo_dir, train = True):
 
     total = np.array(total)
     return total
-    # piles = np.array_split(total, math.ceil(total.shape[0] / batch_size))
-
-    # for p in piles:
-
-    #     n = len(p)
-
-    #     imgs = np.ones((n, 1, image_size_sfm[0], image_size_sfm[1])) 
-    #     depths = np.ones((n, 1, image_size_sfm[0], image_size_sfm[1]))
-    #     velos = np.array([])
-
-
-    #     i = 0
-
-    #     for _img, _depth, _velo in p:
-    #         img, depth = getSingleDepthSfmLearner(_img, _depth)
-    #         imgs[i, 0, :, :] = np.transpose(img)
-    #         depths[i, 0, :, :] = np.transpose(depth)
-    #         velos = np.append(velos, _velo)
-    #         i += 1
-
-    #     yield imgs, depths, velos
 
 
 
@@ -118,9 +98,10 @@ def filterPoint(arr : np.ndarray):
 
 class DepthData(data.Dataset):
 
-    def __init__(self, root, velo_dir, train = True):
+    def __init__(self, root, velo_dir, channel, train = True,):
 
         self.data = getBatchDataFromSfmLearner(root, velo_dir, train)
+        self.channel = channel
 
 
     def __len__(self):
@@ -131,9 +112,12 @@ class DepthData(data.Dataset):
     def __getitem__(self, index):
 
         _img, _depth, _velo = self.data[index]
-        img, depth = getSingleDepthSfmLearner(_img, _depth)
-        img = np.transpose(img)
-        img = img[np.newaxis, :]
+        img, depth = getSingleDepthSfmLearner(_img, _depth, channel = self.channel)
+        if self.channel != 1:
+            img = np.transpose(img, [2, 1, 0])
+        else:
+            img = np.transpose(img)
+            img = img[np.newaxis, :]
         img = Variable(torch.from_numpy(img).float())
 
         depth = np.transpose(depth) 

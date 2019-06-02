@@ -47,7 +47,7 @@ class ChamferDistanceFunction(torch.autograd.Function):
         gradxyz2 = torch.zeros(xyz2.size())
 
 
-        if not gradxyz1.is_cuda:
+        if not graddist1.is_cuda:
             cd.backward(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2, idx1, idx2)
         else:
             gradxyz1 = gradxyz1.cuda()
@@ -75,10 +75,10 @@ class ChamferLoss(nn.Module):
 
     def forward(self, points1, points2):
 
-        return chamfer(points1, points2)
+        # return chamfer(points1, points2)
         
-        # dist1, dist2 = self.chamfer_dist(points1, points2)
-        # return (torch.mean(dist1)) + (torch.mean(dist2))
+        dist1, dist2 = self.chamfer_dist(points1, points2)
+        return (torch.mean(dist1)) + (torch.mean(dist2))
 
 
 

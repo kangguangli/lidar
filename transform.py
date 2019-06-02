@@ -65,10 +65,11 @@ def transform_array(arr):
             y = arr[i][j] * math.tan(gamma_w)
 
             
-            if arr[i][j] != 0:
+            # if arr[i][j] != 0:
                 # res.append([arr[i][j],j, -i])
-                res.append([arr[i][j], x, -y])
+            res.append([arr[i][j], x, -y])
 
     res = np.array(res)
 
-    pptk.viewer(res)
+    # f = pptk.viewer(res)
+    return res

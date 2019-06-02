@@ -23,13 +23,13 @@ import models
 parser = argparse.ArgumentParser(description = 'Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                 formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-j', '--workers', default = 4, type = int, metavar = 'N',
+parser.add_argument('-j', '--workers', default = 8, type = int, metavar = 'N',
                     help = 'number of data loading workers')
 
 parser.add_argument('--epochs', default = 100, type = int, metavar = 'N',
                     help='number of total epochs to run')
 
-parser.add_argument('-b', '--batch-size', default = 8, type = int,
+parser.add_argument('-b', '--batch-size', default = 16, type = int,
                     metavar = 'N', help = 'batch size')
 
 parser.add_argument('--lr', '--learning-rate', default = 2e-4, type = float,
@@ -43,6 +43,9 @@ parser.add_argument('--beta', default = 0.999, type = float, metavar = 'M',
 
 parser.add_argument('--weight-decay', '--wd', default = 0, type = float,
                     metavar = 'W', help = 'weight decay')
+
+parser.add_argument('--channel', '--c', default = 3, type = int,
+                    metavar = 'C', help = 'input channel')
 
 parser.add_argument('--seed', default = 0, type = int, help = 'seed for random functions, and network initialization')
 
@@ -65,25 +68,26 @@ def main():
         torch.manual_seed(args.seed)
 
     print("Loading Data")
-    train_set = data_loader.DepthData('/home/data_kitti/formatted', '/home/data_kitti/raw')
+    train_set = data_loader.DepthData('/home/data_kitti/formatted', '/home/data_kitti/raw', args.channel)
     train_loader = torch.utils.data.DataLoader(train_set,
         batch_size = args.batch_size, shuffle = True,
         num_workers = args.workers, pin_memory = True)
 
-    val_set = data_loader.DepthData('/home/data_kitti/formatted', '/home/data_kitti/raw', train = False)
+    val_set = data_loader.DepthData('/home/data_kitti/formatted', '/home/data_kitti/raw', args.channel, train = False)
     val_loader = torch.utils.data.DataLoader(val_set,
         batch_size = args.batch_size, shuffle = True,
         num_workers = args.workers, pin_memory = True)
 
     print("Load Train Data {}".format(train_set.__len__()))
     print("Load Val Data {}".format(val_set.__len__()))
+    print("Input Data Channel {}".format(args.channel))
 
     print('Creating Model')
-    model = models.UNetR(1, 1).to(device)
+    model = models.UNetR(args.channel, 1).to(device)
     model.init_weights()
 
     cudnn.benchmark = True
-    model = torch.nn.DataParallel(model, device_ids=[0,1])
+    model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
 
     print('Setting Adam Slover')
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr,
@@ -97,7 +101,9 @@ def main():
         train_loss = train(args, train_loader, model, optimizer, 0, None, None)
 
         val_loss = validate(args, val_loader, model, optimizer, 0, None)
+        # val_loss = train_loss
 
+        save(model, os.path.join(args.save_path, 'pth'))
         if best_error < 0:
             best_error = val_loss
             save(model, os.path.join(args.save_path, 'best'))
@@ -151,24 +157,29 @@ def train(args, train_loader, model, optimizer, epoch_size, logger, train_writer
 
         output = model(img)
 
-        loss = None
+            # _output, _depth = random_crop(output, depth)
+            # _output, _depth = output, depth
 
-        for _ in range(10):
+        output_points = models.depth2pc(output)
+        gt_points = models.depth2pc(depth)
 
-            _output, _depth = random_crop(output, depth)
-
-            output_points = models.depth2pc(_output)
-            gt_points = models.depth2pc(_depth)
-
-            if loss is None:
-                loss = loss_layer(output_points, gt_points)
-            else:
-                loss = loss + loss_layer(output_points, gt_points)
+        loss = loss_layer(output_points, gt_points)
         
-        loss /= 10
         loss = torch.mean(loss)
 
-        print('{}_Train Loss: {}'.format(i, loss))
+        # _output = output + 1.0
+        # _depth = depth + 1.0
+        # d_i = torch.log(_output) - torch.log(_depth)
+        # b, c, h, w = d_i.size()
+        # n = h * w
+        # _silog = torch.sum(torch.sum(torch.pow(d_i, 2), 3), 2) / n - torch.pow(torch.sum(torch.sum(d_i, 3), 2), 2) / (n * n)
+        # silog = torch.mean(_silog)
+
+        silog = models.getSIlog(depth, output)
+
+        print('{}_Train Loss: {} {}'.format(i, loss, silog))
+
+        loss += silog
 
         optimizer.zero_grad()
         loss.backward()
@@ -198,25 +209,18 @@ def validate(args, val_loader, model, optimizer, epoch_size, logger):
         depth = depth.to(device)
 
         output = model(img)
-
-        loss = None
-
-        for _ in range(10):
-
-            _output, _depth = random_crop(output, depth)
-
-            output_points = models.depth2pc(_output)
-            gt_points = models.depth2pc(_depth)
-
-            if loss is None:
-                loss = loss_layer(output_points, gt_points)
-            else:
-                loss = loss + loss_layer(output_points, gt_points)
         
-        loss /= 10
+        output_points = models.depth2pc(output)
+        gt_points = models.depth2pc(depth)
+
+        loss = loss_layer(output_points, gt_points)
         loss = torch.mean(loss)
 
-        print('{}_Val Loss: {}'.format(i, loss))
+        silog = models.getSIlog(depth, output)
+
+        print('{}_Val Loss: {} {}'.format(i, loss, silog))
+
+        loss += silog
 
         losses.append(loss.detach().cpu().numpy())
     
@@ -226,15 +230,28 @@ def validate(args, val_loader, model, optimizer, epoch_size, logger):
 
 def save(net, path):
 
-    torch.save(net.state_dict(), path)
+    torch.save({'state_dict':net.module.state_dict()}, path)
 
 
 
-def run_interface(img_path):
+@torch.no_grad()
+def run_interface(img_path, save_path, channels):
 
     img = Image.open(img_path)
-    img = img.convert('L')
     img = np.array(img)
+    img = np.transpose(img, [2, 1, 0])
+    img = img[np.newaxis, :]
+    img = Variable(torch.from_numpy(img).float()).to(device)
+
+    net = models.UNetR(channels, 1).to(device)
+    weights = torch.load(save_path)
+    net.load_state_dict(weights['state_dict'])
+    net.eval()
+
+    output = net(img)
+    output_points = models.depth2pc(output)
+    return output_points.detach().cpu().numpy()
+
 
 
 if __name__ == '__main__':
