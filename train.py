@@ -163,23 +163,19 @@ def train(args, train_loader, model, optimizer, epoch_size, logger, train_writer
         output_points = models.depth2pc(output)
         gt_points = models.depth2pc(depth)
 
-        loss = loss_layer(output_points, gt_points)
+        cd_loss = loss_layer(output_points, gt_points)
         
-        loss = torch.mean(loss)
+        cd_loss = torch.mean(cd_loss)
 
-        # _output = output + 1.0
-        # _depth = depth + 1.0
-        # d_i = torch.log(_output) - torch.log(_depth)
-        # b, c, h, w = d_i.size()
-        # n = h * w
-        # _silog = torch.sum(torch.sum(torch.pow(d_i, 2), 3), 2) / n - torch.pow(torch.sum(torch.sum(d_i, 3), 2), 2) / (n * n)
-        # silog = torch.mean(_silog)
 
         silog = models.getSIlog(depth, output)
+        var = torch.var(output_points)
+        smooth = torch.nn.functional.smooth_l1_loss(output, depth)
 
-        print('{}_Train Loss: {} {}'.format(i, loss, silog))
 
-        loss += silog
+        print('{}_Train Loss: cd loss {}, silog {}, var {}, smooth {}'.format(i, cd_loss, silog, var, smooth))
+
+        loss = cd_loss + silog + var + smooth
 
         optimizer.zero_grad()
         loss.backward()
@@ -213,12 +209,16 @@ def validate(args, val_loader, model, optimizer, epoch_size, logger):
         output_points = models.depth2pc(output)
         gt_points = models.depth2pc(depth)
 
-        loss = loss_layer(output_points, gt_points)
-        loss = torch.mean(loss)
+        cd_loss = loss_layer(output_points, gt_points)
+        cd_loss = torch.mean(cd_loss)
 
         silog = models.getSIlog(depth, output)
+        var = torch.var(output_points)
+        smooth = torch.nn.functional.smooth_l1_loss(output, depth)
 
-        print('{}_Val Loss: {} {}'.format(i, loss, silog))
+        print('{}_Val Loss: cd loss {}, silog {}, var {}, smooth {}'.format(i, cd_loss, silog, var, smooth))
+
+        loss = cd_loss + silog + var + smooth
 
         loss += silog
 
