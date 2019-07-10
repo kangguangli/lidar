@@ -33,7 +33,7 @@ def main():
         num_workers = 8, pin_memory = True)
 
     our_net = models.UNetR(3, 1).to(device)
-    weights = torch.load('runs/best')
+    weights = torch.load('runs/best_b_sp_3_silog_var_smooth')
     our_net.load_state_dict(weights['state_dict'])
 
     our_loss = eval(our_net, val_loader)

@@ -11,6 +11,10 @@ import scipy.misc
 def get_capture_from_pc(arr, specific = True):
 
     theta, phi, r = (0.04295149, 3.42998147, 12.3728714)
+
+    if specific == True:
+        arr = arr[arr[:, 0] > 1.0]
+
     v = pptk.viewer(arr)
     v.set(show_axis = False)
     v.set(show_info = False)
@@ -23,6 +27,8 @@ def get_capture_from_pc(arr, specific = True):
 
     v.capture('screenshot.png')
     time.sleep(10)
+
+    # v.close()
 
     res = None
     with Image.open('screenshot.png') as img:
@@ -123,5 +129,8 @@ def main(inputs, outputs):
 
 
 
+
+def presentation():
+    pass
 
 

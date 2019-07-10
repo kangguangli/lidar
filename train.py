@@ -87,7 +87,7 @@ def main():
     model.init_weights()
 
     cudnn.benchmark = True
-    model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
+    model = torch.nn.DataParallel(model, device_ids=[0, 1])
 
     print('Setting Adam Slover')
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr,
@@ -169,13 +169,13 @@ def train(args, train_loader, model, optimizer, epoch_size, logger, train_writer
 
 
         silog = models.getSIlog(depth, output)
-        var = torch.var(output_points)
+        var = 1 / torch.var(output_points) * 0.2
         smooth = torch.nn.functional.smooth_l1_loss(output, depth)
 
 
         print('{}_Train Loss: cd loss {}, silog {}, var {}, smooth {}'.format(i, cd_loss, silog, var, smooth))
 
-        loss = cd_loss + silog + var + smooth
+        loss = cd_loss + silog + var #+ smooth
 
         optimizer.zero_grad()
         loss.backward()
@@ -213,14 +213,12 @@ def validate(args, val_loader, model, optimizer, epoch_size, logger):
         cd_loss = torch.mean(cd_loss)
 
         silog = models.getSIlog(depth, output)
-        var = torch.var(output_points)
+        var = 1 / torch.var(output_points) * 0.2
         smooth = torch.nn.functional.smooth_l1_loss(output, depth)
 
         print('{}_Val Loss: cd loss {}, silog {}, var {}, smooth {}'.format(i, cd_loss, silog, var, smooth))
 
-        loss = cd_loss + silog + var + smooth
-
-        loss += silog
+        loss = cd_loss + silog + var #+ smooth
 
         losses.append(loss.detach().cpu().numpy())
     
